@@ -1,180 +1,25 @@
+# =========================================================
+# IMPORT
+# =========================================================
 import streamlit as st
 import pandas as pd
 import numpy as np
 import itertools
-import base64
 import plotly.express as px
+from datetime import datetime
 
 # =========================================================
 # CONFIG
 # =========================================================
 st.set_page_config(
     page_title="SPK Pemilihan Rumah",
-    page_icon="🏡",
     layout="wide"
 )
 
-# =========================================================
-# BACKGROUND
-# =========================================================
-def get_base64(bin_file):
-    with open(bin_file, 'rb') as f:
-        data = f.read()
-    return base64.b64encode(data).decode()
-
-def set_background(image_file):
-    try:
-        bin_str = get_base64(image_file)
-        bg = f"""
-        <style>
-        .stApp {{
-            background-image: url("data:image/jpeg;base64,{bin_str}");
-            background-size: cover;
-            background-position: center;
-            background-attachment: fixed;
-        }}
-        </style>
-        """
-    except Exception:
-        bg = """
-        <style>
-        .stApp {
-            background: linear-gradient(
-                135deg,
-                #1a0a00,
-                #3d2000,
-                #1a0a00
-            );
-        }
-        </style>
-        """
-    st.markdown(bg, unsafe_allow_html=True)
-
-set_background("pexels-stephen-leonardi-587681991-34276128.jpg")
-
-# =========================================================
-# CSS
-# =========================================================
-st.markdown("""
-<style>
-
-html, body, [class*="css"] {
-    font-family: 'DM Sans', sans-serif;
-}
-
-.stApp::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.45);
-    z-index: 0;
-    pointer-events: none;
-}
-
-.block-container {
-    position: relative;
-    z-index: 1;
-    padding-top: 1.5rem;
-}
-
-[data-testid="stSidebar"] {
-    background: rgba(20,20,20,0.95);
-}
-
-.hero-wrap {
-    text-align:center;
-    padding:2rem;
-    border-radius:20px;
-    background:rgba(255,255,255,0.08);
-    backdrop-filter: blur(10px);
-    margin-bottom:1rem;
-}
-
-.hero-title {
-    color:white;
-    font-size:3rem;
-    font-weight:bold;
-}
-
-.hero-title span {
-    color:#f5c842;
-}
-
-.hero-sub {
-    color:rgba(255,255,255,0.7);
-}
-
-.main-card {
-    background: rgba(255,255,255,0.08);
-    border-radius:20px;
-    padding:2rem;
-    margin-bottom:1rem;
-    backdrop-filter: blur(12px);
-    color:white;
-}
-
-.profile-card {
-    background: rgba(255,255,255,0.08);
-    border-radius:16px;
-    padding:1.5rem 2rem;
-    margin-bottom:1rem;
-    backdrop-filter: blur(12px);
-    color:white;
-    border: 1px solid rgba(245,200,66,0.3);
-}
-
-.profile-card h3 {
-    color: #f5c842;
-    margin-top: 0;
-}
-
-.member-card {
-    background: rgba(245,200,66,0.10);
-    border-radius:12px;
-    padding:1rem 1.5rem;
-    margin-bottom:0.75rem;
-    border-left: 4px solid #f5c842;
-}
-
-.member-name {
-    color: white;
-    font-size: 1.1rem;
-    font-weight: bold;
-    margin: 0;
-}
-
-.member-nim {
-    color: rgba(255,255,255,0.6);
-    font-size: 0.9rem;
-    margin: 0;
-}
-
-.badge {
-    display:inline-block;
-    background: linear-gradient(135deg, #f5c842, #d4921a);
-    color: black;
-    border-radius: 20px;
-    padding: 0.2rem 0.8rem;
-    font-size: 0.85rem;
-    font-weight: bold;
-    margin: 0.2rem 0.2rem 0.2rem 0;
-}
-
-.stButton button {
-    background: linear-gradient(
-        135deg,
-        #f5c842,
-        #d4921a
-    );
-    color:black;
-    border:none;
-    border-radius:30px;
-    padding:0.6rem 1.5rem;
-    font-weight:bold;
-}
-
-</style>
-""", unsafe_allow_html=True)
+pd.set_option(
+    'display.float_format',
+    '{:.10f}'.format
+)
 
 # =========================================================
 # SESSION STATE
@@ -190,12 +35,15 @@ if 'spk_step' not in st.session_state:
 # =========================================================
 @st.cache_data
 def load_data():
-    df = pd.read_csv("RealEstate_California.csv")
+
+    df = pd.read_csv("RealEstate_California_Clean.csv")
+
     df = df[df['homeType'].isin([
         'SINGLE_FAMILY',
         'CONDO',
         'TOWNHOUSE'
     ])]
+
     df = df.dropna(subset=[
         'price',
         'livingArea',
@@ -203,7 +51,11 @@ def load_data():
         'bathrooms',
         'yearBuilt'
     ])
-    df['house_age'] = 2021 - df['yearBuilt']
+
+    df['house_age'] = (
+        datetime.now().year - df['yearBuilt']
+    )
+
     return df
 
 df_rumah = load_data()
@@ -219,115 +71,73 @@ kriteria = [
     "Umur Rumah"
 ]
 
+# =========================================================
+# SKALA AHP
+# =========================================================
 skala_ahp = {
-    1: "1 — Sama penting",
-    2: "2 — Sedikit lebih penting",
-    3: "3 — Cukup lebih penting",
-    4: "4 — Lebih penting",
-    5: "5 — Sangat lebih penting",
-    6: "6 — Jauh lebih penting",
-    7: "7 — Sangat dominan",
-    8: "8 — Hampir mutlak",
-    9: "9 — Mutlak lebih penting"
+    1: "1 - Sama penting",
+    2: "2 - Sedikit lebih penting",
+    3: "3 - Cukup lebih penting",
+    4: "4 - Lebih penting",
+    5: "5 - Sangat lebih penting",
+    6: "6 - Jauh lebih penting",
+    7: "7 - Sangat dominan",
+    8: "8 - Hampir mutlak",
+    9: "9 - Mutlak lebih penting"
 }
 
 # =========================================================
-# HELPER: Hitung CR dari preset
-# =========================================================
-def hitung_cr_dari_preset(preset):
-    """
-    preset: list 10 nilai untuk pasangan
-    (0,1),(0,2),(0,3),(0,4),(1,2),(1,3),(1,4),(2,3),(2,4),(3,4)
-    Return: CR value
-    """
-    pairs_idx = [
-        (0,1),(0,2),(0,3),(0,4),
-        (1,2),(1,3),(1,4),
-        (2,3),(2,4),
-        (3,4)
-    ]
-    matriks = np.ones((5,5))
-    for (r,c), v in zip(pairs_idx, preset):
-        matriks[r,c] = v
-        matriks[c,r] = 1/v
-
-    kolom_sum = matriks.sum(axis=0)
-    normalisasi = matriks / kolom_sum
-    bobot = normalisasi.mean(axis=1)
-
-    RI = 1.12
-    weighted_sum = np.dot(matriks, bobot)
-    consistency_vector = weighted_sum / bobot
-    lambda_max = np.mean(consistency_vector)
-    CI = (lambda_max - 5) / 4
-    CR = CI / RI
-    return CR
-
-# =========================================================
-# PRESET TEMPLATES — semua dirancang agar CR < 0.1
-#
-# Urutan 10 pasangan:
-# (H,L),(H,KT),(H,KM),(H,U),
-# (L,KT),(L,KM),(L,U),
-# (KT,KM),(KT,U),(KM,U)
-#
-# H=Harga, L=Luas, KT=K.Tidur, KM=K.Mandi, U=Umur
+# PRESET TEMPLATE
 # =========================================================
 PRESETS = {
-    # Harga >> segalanya
+
     "Pencari Rumah Murah": [
-        5, 5, 5, 5,   # H vs L, KT, KM, U
-        1, 1, 1,      # L vs KT, KM, U
-        1, 1,         # KT vs KM, U
-        1             # KM vs U
+        5, 5, 5, 5,
+        1, 1, 1,
+        1, 1,
+        1
     ],
 
-    # Luas & Kamar >> Harga & Umur
     "Keluarga Besar": [
-        1, 1, 1, 3,   # H vs L=sama, KT=sama, KM=sama, U=H sedikit lebih
-        3, 3, 5,      # L vs KT=cukup, KM=cukup, U=sangat
-        3, 5,         # KT vs KM=cukup, U=sangat
-        3             # KM vs U=cukup
+        1, 1, 1, 3,
+        3, 3, 5,
+        3, 5,
+        3
     ],
 
-    # Seimbang, sedikit prioritas Harga & Luas
     "Pasangan Muda": [
-        2, 3, 3, 3,   # H vs L, KT, KM, U
-        2, 2, 2,      # L vs KT, KM, U
-        1, 1,         # KT vs KM, U
-        1             # KM vs U
+        2, 3, 3, 3,
+        2, 2, 2,
+        1, 1,
+        1
     ],
 
-    # Umur & Harga penting (investasi = murah & baru)
     "Investor Properti": [
-        3, 3, 3, 1,   # H vs L, KT, KM, U=sama
-        1, 1, 1,      # L vs KT, KM, U
-        1, 1,         # KT vs KM, U
-        1             # KM vs U (Umur sedikit di atas lewat H vs U)
+        3, 3, 3, 1,
+        1, 1, 1,
+        1, 1,
+        1
     ],
 
-    # Luas & Kamar Mandi >> segalanya (premium)
     "Rumah Mewah": [
-        1, 1, 1, 3,   # H vs L, KT, KM, U
-        5, 5, 5,      # L vs KT, KM, U
-        3, 3,         # KT vs KM, U
-        1             # KM vs U
+        1, 1, 1, 3,
+        5, 5, 5,
+        3, 3,
+        1
     ],
 
-    # Umur Rumah (baru) paling penting
     "Rumah Baru": [
-        1, 1, 1, 1,   # H vs L, KT, KM, U=sama (U akan unggul dari bawah)
-        1, 1, 1,      # L vs KT, KM, U
-        1, 1,         # KT vs KM, U
-        5             # KM vs U → U lebih penting dari KM
+        1, 1, 1, 1,
+        1, 1, 1,
+        1, 1,
+        5
     ],
 
-    # Harga murah & simpel (kamar sedikit ok)
     "Mahasiswa / Single": [
-        5, 5, 5, 3,   # H vs L, KT, KM, U
-        1, 1, 1,      # L vs KT, KM, U
-        1, 1,         # KT vs KM, U
-        1             # KM vs U
+        5, 5, 5, 3,
+        1, 1, 1,
+        1, 1,
+        1
     ]
 }
 
@@ -335,7 +145,9 @@ PRESETS = {
 # SIDEBAR
 # =========================================================
 with st.sidebar:
-    st.title("🏡 SPK Rumah")
+
+    st.title("SPK Rumah")
+    st.write("---")
 
     if st.button("Profil Kelompok", use_container_width=True):
         st.session_state.main_page = "profil"
@@ -348,126 +160,78 @@ with st.sidebar:
         st.session_state.spk_step = 1
 
 # =========================================================
-# HERO
+# HEADER
 # =========================================================
-st.markdown("""
-<div class="hero-wrap">
-    <h1 class="hero-title">
-        SPK <span>Pemilihan Rumah</span>
-    </h1>
-    <p class="hero-sub">
-        Analytical Hierarchy Process (AHP)
-    </p>
-</div>
-""", unsafe_allow_html=True)
+st.title("SPK Pemilihan Rumah")
+st.caption("Metode AHP dan Weighted Sum")
+st.divider()
 
 # =========================================================
-# PROFIL
+# HALAMAN PROFIL
 # =========================================================
 if st.session_state.main_page == "profil":
 
-    st.markdown("""
-    <div class="profile-card">
-        <h3>📋 Profil Aplikasi</h3>
-        <p>
-            Sistem Pendukung Keputusan (SPK) Pemilihan Rumah ini dirancang
-            untuk membantu pengguna dalam menentukan rumah terbaik berdasarkan
-            beberapa kriteria penting seperti harga rumah, luas bangunan,
-            jumlah kamar tidur, jumlah kamar mandi, dan umur rumah.
-        </p>
-        <p>
-            Aplikasi ini menggunakan metode <strong>Analytical Hierarchy Process (AHP)</strong>
-            untuk menghitung tingkat prioritas setiap kriteria melalui proses
-            perbandingan berpasangan (pairwise comparison). Hasil akhir berupa
-            rekomendasi rumah dengan skor tertinggi sesuai preferensi pengguna.
-        </p>
-        <p>
-            Dataset yang digunakan berasal dari <strong>Real Estate California</strong>
-            yang berisi data properti residensial di California, Amerika Serikat.
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
+    st.header("Profil Aplikasi")
 
-    col_stat1, col_stat2, col_stat3 = st.columns(3)
-    with col_stat1:
-        st.metric("Jumlah Data", len(df_rumah))
-    with col_stat2:
-        st.metric("Jumlah Kriteria", 5)
-    with col_stat3:
-        st.metric("Wilayah", "California")
+    st.write("""
+    Sistem Pendukung Keputusan (SPK) Pemilihan Rumah
+    menggunakan metode Analytical Hierarchy Process (AHP)
+    dan Weighted Sum untuk membantu pengguna menentukan
+    rumah terbaik berdasarkan berbagai kriteria.
+    """)
 
-    st.markdown("<br>", unsafe_allow_html=True)
+    col1, col2, col3 = st.columns(3)
 
-    st.markdown("""
-    <div class="profile-card">
-        <h3>👥 Profil Kelompok</h3>
-    </div>
-    """, unsafe_allow_html=True)
+    col1.metric("Jumlah Data", len(df_rumah))
+    col2.metric("Jumlah Kriteria", 5)
+    col3.metric("Wilayah", "California")
 
-    col_m1, col_m2 = st.columns(2)
+    st.divider()
 
-    with col_m1:
-        st.markdown("""
-        <div class="member-card">
-            <p class="member-name">🧑‍💻 Kevin Ridoi Parhusip</p>
-            <p class="member-nim">NIM: 123240084</p>
-        </div>
-        """, unsafe_allow_html=True)
+    st.header("Profil Kelompok")
 
-    with col_m2:
-        st.markdown("""
-        <div class="member-card">
-            <p class="member-name">🧑‍💻 Oktavian Prasetya Adi</p>
-            <p class="member-nim">NIM: 123240135</p>
-        </div>
-        """, unsafe_allow_html=True)
+    c1, c2 = st.columns(2)
 
-    st.markdown("""
-    <div class="profile-card" style="margin-top:1rem;">
-        <h3>📚 Informasi Akademik</h3>
-        <p>
-            <span class="badge">Mata Kuliah</span>
-            Sistem Cerdas Pendukung Keputusan
-        </p>
-        <p>
-            <span class="badge">Metode</span>
-            Analytical Hierarchy Process (AHP)
-        </p>
-        <p>
-            <span class="badge">Dataset</span>
-            Real Estate California
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
+    with c1:
+        st.info("""
+        Kevin Ridoi Parhusip
+        
+        NIM: 123240084
+        """)
+
+    with c2:
+        st.info("""
+        Oktavian Prasetya Adi
+        
+        NIM: 123240135
+        """)
 
 # =========================================================
-# DATASET
+# HALAMAN DATASET
 # =========================================================
 elif st.session_state.main_page == "dataset":
 
-    st.markdown("""
-    <div class="main-card">
-        <h2>Dataset Mentah</h2>
-    </div>
-    """, unsafe_allow_html=True)
+    st.header("Dataset Rumah")
 
-    st.dataframe(df_rumah, use_container_width=True)
+    st.dataframe(
+        df_rumah,
+        use_container_width=True
+    )
 
 # =========================================================
-# SPK
+# HALAMAN SPK
 # =========================================================
 elif st.session_state.main_page == "spk":
+
+    st.write(f"Langkah {st.session_state.spk_step} dari 4")
+    st.progress(st.session_state.spk_step / 4)
 
     # =====================================================
     # STEP 1
     # =====================================================
     if st.session_state.spk_step == 1:
 
-        st.markdown("""
-        <div class="main-card">
-            <h2>Pilih Template Pengguna</h2>
-        </div>
-        """, unsafe_allow_html=True)
+        st.header("Langkah 1 : Pilih Template")
 
         metode = st.selectbox(
             "Template Pengguna",
@@ -483,28 +247,23 @@ elif st.session_state.main_page == "spk":
             ]
         )
 
-        st.markdown("""
-        ### Deskripsi Template
+        st.write("Deskripsi Template")
 
-        - **Pencari Rumah Murah** → fokus harga serendah mungkin
-        - **Keluarga Besar** → fokus luas & jumlah kamar
-        - **Pasangan Muda** → seimbang antara harga dan fasilitas
-        - **Investor Properti** → fokus nilai investasi & harga
-        - **Rumah Mewah** → fokus luas dan fasilitas premium
-        - **Rumah Baru** → fokus umur rumah (bangunan baru)
-        - **Mahasiswa / Single** → fokus murah & simpel
-        - **Manual** → tentukan sendiri bobot pairwise
-        """)
+        st.write("- Pencari Rumah Murah : fokus harga murah")
+        st.write("- Keluarga Besar : fokus luas dan kamar")
+        st.write("- Investor Properti : fokus investasi")
+        st.write("- Rumah Baru : fokus umur rumah")
 
-        if st.button("Lanjut Pairwise"):
+        if st.button("Lanjut"):
 
             pasangan = [
-                "c12","c13","c14","c15",
-                "c23","c24","c25",
-                "c34","c35","c45"
+                "c12", "c13", "c14", "c15",
+                "c23", "c24", "c25",
+                "c34", "c35",
+                "c45"
             ]
 
-            preset = PRESETS.get(metode, [1]*10)
+            preset = PRESETS.get(metode, [1] * 10)
 
             for i, k in enumerate(pasangan):
                 st.session_state[f"select_{k}"] = preset[i]
@@ -517,33 +276,35 @@ elif st.session_state.main_page == "spk":
     # =====================================================
     elif st.session_state.spk_step == 2:
 
-        st.markdown("""
-        <div class="main-card">
-            <h2>Pairwise Comparison</h2>
-        </div>
-        """, unsafe_allow_html=True)
+        st.header("Langkah 2 : Pairwise Comparison")
 
         pairwise_list = list(
-            itertools.combinations(range(len(kriteria)), 2)
+            itertools.combinations(
+                range(len(kriteria)),
+                2
+            )
         )
 
-        # FIX: gunakan default_index bukan format_func lambda closure bug
         for i, j in pairwise_list:
-            key = f"c{i+1}{j+1}"
-            st.subheader(f"{kriteria[i]} VS {kriteria[j]}")
 
-            current_val = st.session_state.get(f"select_{key}", 1)
+            key = f"c{i+1}{j+1}"
+
+            st.write(
+                f"{kriteria[i]} vs {kriteria[j]}"
+            )
+
+            current_val = st.session_state.get(
+                f"select_{key}",
+                1
+            )
+
             options = list(skala_ahp.keys())
 
-            # Pastikan current_val valid
-            if current_val not in options:
-                current_val = 1
-
-            selected = st.selectbox(
-                "Tingkat Kepentingan",
+            st.selectbox(
+                "Pilih Nilai",
                 options=options,
                 index=options.index(current_val),
-                format_func=lambda x, d=skala_ahp: d[x],
+                format_func=lambda x: skala_ahp[x],
                 key=f"select_{key}"
             )
 
@@ -564,6 +325,8 @@ elif st.session_state.main_page == "spk":
     # =====================================================
     elif st.session_state.spk_step == 3:
 
+        st.header("Langkah 3 : Hasil AHP")
+
         matriks = np.ones((5, 5))
 
         pairs = [
@@ -580,25 +343,42 @@ elif st.session_state.main_page == "spk":
         ]
 
         for r, c, k in pairs:
-            v = st.session_state.get(f"select_{k}", 1)
+
+            v = st.session_state.get(
+                f"select_{k}",
+                1
+            )
+
             matriks[r, c] = v
             matriks[c, r] = 1 / v
 
         st.subheader("Matriks Pairwise")
+
         st.dataframe(
-            pd.DataFrame(matriks, columns=kriteria, index=kriteria),
+            pd.DataFrame(
+                matriks,
+                columns=kriteria,
+                index=kriteria
+            ),
             use_container_width=True
         )
 
+        # NORMALISASI
         kolom_sum = matriks.sum(axis=0)
         normalisasi = matriks / kolom_sum
 
         st.subheader("Matriks Normalisasi")
+
         st.dataframe(
-            pd.DataFrame(normalisasi, columns=kriteria, index=kriteria).round(4),
+            pd.DataFrame(
+                normalisasi,
+                columns=kriteria,
+                index=kriteria
+            ).round(10),
             use_container_width=True
         )
 
+        # BOBOT
         bobot = normalisasi.mean(axis=1)
 
         bobot_df = pd.DataFrame({
@@ -608,49 +388,74 @@ elif st.session_state.main_page == "spk":
         })
 
         st.subheader("Bobot Prioritas")
-        st.dataframe(bobot_df.round(4), use_container_width=True)
 
-        # Grafik bobot
-        fig_bobot = px.bar(
+        st.dataframe(
+            bobot_df.round(10),
+            use_container_width=True
+        )
+
+        # GRAFIK
+        fig = px.bar(
             bobot_df,
             x='Kriteria',
             y='Bobot (%)',
             text='Bobot (%)',
-            title='Bobot Prioritas Kriteria',
             color='Bobot (%)',
-            color_continuous_scale='YlOrBr'
+            title='Bobot Prioritas Kriteria'
         )
-        fig_bobot.update_traces(texttemplate='%{text:.2f}%', textposition='outside')
-        st.plotly_chart(fig_bobot, use_container_width=True)
 
-        # Uji Konsistensi
+        fig.update_traces(
+            texttemplate='%{text:.2f}%',
+            textposition='outside'
+        )
+
+        st.plotly_chart(
+            fig,
+            use_container_width=True
+        )
+
+        # =================================================
+        # UJI KONSISTENSI
+        # =================================================
         RI = 1.12
-        weighted_sum = np.dot(matriks, bobot)
+
+        weighted_sum = np.dot(
+            matriks,
+            bobot
+        )
+
         consistency_vector = weighted_sum / bobot
+
         lambda_max = np.mean(consistency_vector)
+
         CI = (lambda_max - 5) / 4
+
         CR = CI / RI
 
         st.subheader("Uji Konsistensi")
 
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("Lambda Max", round(lambda_max, 4))
-        with col2:
-            st.metric("CI", round(CI, 4))
-        with col3:
-            st.metric("CR", round(CR, 4))
+        c1, c2, c3 = st.columns(3)
+
+        c1.metric("Lambda Max", round(lambda_max, 10))
+        c2.metric("CI", round(CI, 10))
+        c3.metric("CR", round(CR, 10))
 
         if CR < 0.1:
-            st.success(f"✅ Matriks Konsisten (CR = {CR:.4f} < 0.1)")
+            st.success(
+                f"Matriks Konsisten (CR = {CR:.10f})"
+            )
         else:
-            st.error(f"❌ Matriks Tidak Konsisten (CR = {CR:.4f} ≥ 0.1). Silakan kembali dan sesuaikan nilai pairwise.")
+            st.error(
+                f"Matriks Tidak Konsisten (CR = {CR:.10f})"
+            )
 
         col_back, col_next = st.columns(2)
+
         with col_back:
-            if st.button("Kembali ke Pairwise"):
+            if st.button("Kembali"):
                 st.session_state.spk_step = 2
                 st.rerun()
+
         with col_next:
             if st.button("Lihat Ranking"):
                 st.session_state.bobot_akhir = bobot
@@ -662,7 +467,9 @@ elif st.session_state.main_page == "spk":
     # =====================================================
     elif st.session_state.spk_step == 4:
 
-        alternatif = df_rumah.head(1000).copy()
+        st.header("Langkah 4 : Ranking Rumah")
+
+        alternatif = df_rumah.head(5000).copy()
 
         st.subheader("Filter Preferensi Rumah")
 
@@ -687,9 +494,10 @@ elif st.session_state.main_page == "spk":
         with col3:
             tipe_rumah = st.selectbox(
                 "Tipe Rumah",
-                alternatif['homeType'].unique()
+                alternatif['homeType'].dropna().unique()
             )
 
+        # FILTER
         alternatif = alternatif[
             (alternatif['price'] <= max_harga) &
             (alternatif['bedrooms'] >= min_kamar) &
@@ -697,53 +505,113 @@ elif st.session_state.main_page == "spk":
         ]
 
         if len(alternatif) == 0:
-            st.warning("Tidak ada data yang sesuai filter. Coba longgarkan filter.")
-            if st.button("Kembali"):
-                st.session_state.spk_step = 3
-                st.rerun()
-        else:
-            p_low, p_high = alternatif['price'].quantile([0.33, 0.66])
-            l_low, l_high = alternatif['livingArea'].quantile([0.33, 0.66])
-            a_low, a_high = alternatif['house_age'].quantile([0.33, 0.66])
 
-            def r_price(x):
-                return 0.65 if x <= p_low else (0.25 if x <= p_high else 0.10)
-
-            def r_area(x):
-                return 0.60 if x >= l_high else (0.30 if x >= l_low else 0.10)
-
-            def r_bed(x):
-                return 0.63 if x >= 4 else (0.26 if x == 3 else 0.11)
-
-            def r_bath(x):
-                return 0.63 if x >= 3 else (0.26 if x >= 2 else 0.11)
-
-            def r_age(x):
-                return 0.65 if x <= a_low else (0.25 if x <= a_high else 0.10)
-
-            bobot = st.session_state.bobot_akhir
-
-            alternatif = alternatif.copy()
-            alternatif['score'] = (
-                bobot[0] * alternatif['price'].apply(r_price) +
-                bobot[1] * alternatif['livingArea'].apply(r_area) +
-                bobot[2] * alternatif['bedrooms'].apply(r_bed) +
-                bobot[3] * alternatif['bathrooms'].apply(r_bath) +
-                bobot[4] * alternatif['house_age'].apply(r_age)
+            st.warning(
+                "Tidak ada rumah sesuai filter."
             )
 
-            hasil = alternatif.sort_values(by='score', ascending=False).head(10)
+        else:
+
+            # =================================================
+            # NORMALISASI ALTERNATIF
+            # =================================================
+
+            # COST
+            min_price = max(df_rumah['price'].min(), 1)
+            max_area  = df_rumah['livingArea'].max()
+            max_bed   = df_rumah['bedrooms'].max()
+            max_bath  = df_rumah['bathrooms'].max()
+
+            alternatif['house_age'] = alternatif['house_age'].replace(0, 1)  # lindungi dulu
+            min_age = max(alternatif['house_age'].min(), 1)
+            alternatif['norm_age'] = min_age / alternatif['house_age']
+
+            alternatif['norm_price'] = (
+                min_price
+                / alternatif['price']
+            )
+
+            alternatif['norm_age'] = (
+                min_age
+                / alternatif['house_age']
+            )
+
+            # BENEFIT
+            alternatif['norm_area'] = (
+                alternatif['livingArea']
+                / alternatif['livingArea'].max()
+            )
+
+            alternatif['norm_bed'] = (
+                alternatif['bedrooms']
+                / alternatif['bedrooms'].max()
+            )
+
+            alternatif['norm_bath'] = (
+                alternatif['bathrooms']
+                / alternatif['bathrooms'].max()
+            )
+
+            st.subheader("Data Normalisasi")
+
+            normalisasi_tampil = alternatif[
+                [
+                    'norm_price',
+                    'norm_area',
+                    'norm_bed',
+                    'norm_bath',
+                    'norm_age'
+                ]
+            ].head(10)
+
+            st.dataframe(
+                normalisasi_tampil.style.format({
+                    'norm_price': '{:.10f}',
+                    'norm_area': '{:.10f}',
+                    'norm_bed': '{:.10f}',
+                    'norm_bath': '{:.10f}',
+                    'norm_age': '{:.10f}'
+                }),
+                use_container_width=True
+            )
+
+            # =================================================
+            # HITUNG SCORE
+            # =================================================
+            bobot = st.session_state.bobot_akhir
+
+            alternatif['score'] = (
+                bobot[0] * alternatif['norm_price'] +
+                bobot[1] * alternatif['norm_area'] +
+                bobot[2] * alternatif['norm_bed'] +
+                bobot[3] * alternatif['norm_bath'] +
+                bobot[4] * alternatif['norm_age']
+            )
+
+            hasil = alternatif.sort_values(
+                by='score',
+                ascending=False
+            ).head(10)
+
             hasil = hasil.reset_index(drop=True)
+
             hasil.index = hasil.index + 1
 
-            hasil_tampil = hasil[[
-                'streetAddress', 'city', 'price',
-                'livingArea', 'bedrooms', 'bathrooms', 'score'
-            ]].rename(columns={
+            hasil_tampil = hasil[
+                [
+                    'streetAddress',
+                    'city',
+                    'price',
+                    'livingArea',
+                    'bedrooms',
+                    'bathrooms',
+                    'score'
+                ]
+            ].rename(columns={
                 'streetAddress': 'Alamat',
                 'city': 'Kota',
                 'price': 'Harga ($)',
-                'livingArea': 'Luas (sqft)',
+                'livingArea': 'Luas',
                 'bedrooms': 'K. Tidur',
                 'bathrooms': 'K. Mandi',
                 'score': 'Skor AHP'
@@ -752,31 +620,51 @@ elif st.session_state.main_page == "spk":
             hasil_tampil.index.name = "Ranking"
 
             st.subheader("Top 10 Ranking Rumah")
-            st.dataframe(hasil_tampil, use_container_width=True)
 
+            st.dataframe(
+                hasil_tampil.round(10),
+                use_container_width=True
+            )
+
+            # =================================================
+            # GRAFIK RANKING
+            # =================================================
             fig_rank = px.bar(
                 hasil_tampil.reset_index(),
                 x='Ranking',
                 y='Skor AHP',
                 text='Skor AHP',
-                hover_data=['Alamat'],
                 title='Top 10 Ranking Rumah',
-                color='Skor AHP',
-                color_continuous_scale='YlOrBr'
+                color='Skor AHP'
             )
+
             fig_rank.update_traces(
-                texttemplate='%{text:.4f}',
+                texttemplate='%{text:.10f}',
                 textposition='outside'
             )
-            st.plotly_chart(fig_rank, use_container_width=True)
 
+            st.plotly_chart(
+                fig_rank,
+                use_container_width=True
+            )
+
+            # =================================================
+            # MAP
+            # =================================================
             st.subheader("Peta Lokasi")
-            peta_data = hasil[['latitude', 'longitude']].dropna()
+
+            peta_data = hasil[
+                ['latitude', 'longitude']
+            ].dropna()
+
             if len(peta_data) > 0:
                 st.map(peta_data)
             else:
-                st.info("Data koordinat tidak tersedia untuk hasil ini.")
+                st.info("Koordinat tidak tersedia.")
 
+            # =================================================
+            # RESET
+            # =================================================
             if st.button("Mulai Ulang"):
                 st.session_state.spk_step = 1
                 st.rerun()
